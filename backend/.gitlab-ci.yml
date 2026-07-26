@@ -1,0 +1,84 @@
+include:
+  - template: Auto-DevOps.gitlab-ci.yml
+  - project: 'internal/veracode'
+    file: '/include.yml'
+    ref: 'main'
+
+# Disable pipeline for merge request events
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE != "merge_request_event"' # Disable pipeline for merge requests
+
+pre:
+  stage: .pre
+  image: node:20
+  artifacts:
+    paths:
+      - package-lock.json
+    expire_in: 1 hour
+  script:
+    - npm install
+
+build:
+  image: "$REGISTRY_URL/docker/auto-build-image:v0.6.0"
+  needs: []
+  services:
+    - name: "$REGISTRY_URL/greg/docker/docker:20.10.16-dind"
+      command: ['--tls=false', '--host=tcp://0.0.0.0:2375']
+  before_script:
+    - echo "$REG_PASSWORD" | docker login -u git --password-stdin $REGISTRY_URL
+  rules:
+    - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
+      variables:
+        AUTO_DEVOPS_BUILD_IMAGE_EXTRA_ARGS: "--build-arg MODE=production"
+    - if: "$CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH"
+      variables:
+        AUTO_DEVOPS_BUILD_IMAGE_EXTRA_ARGS: "--build-arg MODE=staging"
+
+staging:
+  variables:
+    KUBE_CONTEXT: $CI_PROJECT_PATH:$CI_PROJECT_NAME-staging
+    AUTO_DEVOPS_BUILD_IMAGE_EXTRA_ARGS: --build-arg=MODE=staging
+    REPLICAS: 1
+    STAGING_ENABLED: "true"
+  environment:
+     name: meeting-scheduler-staging
+     # TODO: confirm the real staging hostname with infra before first deploy
+     url: "https://staging-meeting-scheduler.toki.mn/"
+  rules:
+    - if: '($CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH)'
+
+production:
+  variables:
+    KUBE_CONTEXT: $CI_PROJECT_PATH:$CI_PROJECT_NAME-production
+    AUTO_DEVOPS_BUILD_IMAGE_EXTRA_ARGS: --build-arg=MODE=production
+    REPLICAS: 2
+  environment:
+     name: meeting-scheduler-production
+     # TODO: confirm the real production hostname with infra before first deploy
+     url: "https://meeting-scheduler.toki.mn/"
+  when: manual
+
+variables:
+  KUBE_INGRESS_BASE_DOMAIN: toki.mn
+  HELM_RELEASE_NAME: $CI_PROJECT_NAME
+  CI_APPLICATION_REPOSITORY: "$REGISTRY_URL/$CI_PROJECT_PATH"
+  REGISTRY_URL: "internalregistry.toki.mn"
+  HELM_UPGRADE_VALUES_FILE: ".gitlab/auto-deploy-values.yaml"
+  GIT_SUBMODULE_STRATEGY: normal
+  TEST_DISABLED: "true"
+  CODE_QUALITY_DISABLED: "true"
+  LICENSE_MANAGEMENT_DISABLED: "true"
+  BROWSER_PERFORMANCE_DISABLED: "true"
+  LOAD_PERFORMANCE_DISABLED: "true"
+  SAST_DISABLED: "true"
+  SECRET_DETECTION_DISABLED: "true"
+  DEPENDENCY_SCANNING_DISABLED: "true"
+  CONTAINER_SCANNING_DISABLED: "true"
+  DAST_DISABLED: "true"
+  REVIEW_DISABLED: "true"
+  CODE_INTELLIGENCE_DISABLED: "true"
+  CLUSTER_IMAGE_SCANNING_DISABLED: "true"
+  POSTGRES_ENABLED: "false"
+  AUTO_DEVOPS_DEPLOY_DEBUG: "true"
+  AUTO_DEPLOY_IMAGE_VERSION: "v2.34.0"

@@ -1,0 +1,10 @@
+# TODO: replace with the real GitLab project path once it exists
+ci_access:
+  projects:
+    - id: household/mobility/backend/meeting-scheduler
+
+user_access:
+  access_as:
+    agent: {}
+  projects:
+    - id: household/mobility/backend/meeting-scheduler

@@ -1,0 +1,2 @@
+npm install
+pm2 start npm --name "4000 meeting-scheduler production" -- run production

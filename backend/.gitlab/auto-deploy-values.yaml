@@ -1,0 +1,36 @@
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 1
+ingress:
+  enabled: false
+  # TODO: confirm the real host with infra before first deploy
+  host: "staging-meeting-scheduler"
+  className: nginx
+  path: "/"
+  tls:
+    enabled: false
+    secretName: "toki-mn-tls"
+    className: nginx
+    host: "staging-meeting-scheduler"
+hpa:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+service:
+  externalPort: 4000
+  internalPort: 4000
+  type: NodePort
+livenessProbe:
+  probeType: "http_get"
+  path: "/api/health"
+  port: 4000
+  initialDelaySeconds: 10
+  timeoutSeconds: 10
+readinessProbe:
+  probeType: "http_get"
+  path: "/api/health"
+  port: 4000
+  initialDelaySeconds: 10
+  timeoutSeconds: 10
